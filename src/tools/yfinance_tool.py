@@ -15,13 +15,11 @@ def _map_attribute_to_yfinance_key(attribute_text):
        -> If YES, and they want price, YOU MUST RETURN "historical_price".
        -> If YES, and they want revenue/income, YOU MUST RETURN "total_revenue" or "net_income".
     
-    2. **TOPIC CHECK**: If no specific past time is mentioned, map to current metrics:
-       - "price", "stock", "value" -> "price"
-       - "market cap", "valuation" -> "market_cap"
-       - "p/e", "ratio" -> "pe_ratio"
+    2. **TOPIC CHECK**: If no specific past time is mentioned, MATCH THE TEXT TO THE LIST BELOW AND LOOK AT SYNONYMS.
+       (e.g., "profitable" -> "net_income", "debt" -> "financial_health")
 
     [
-      "price",          (Synonyms: "stock", "stock price", "current price", "value")
+      "price",          (Synonyms: "stock", "stock price", "current price", "value", "trading")
       "historical_price", (Synonyms: "price in 2022", "value last year", "price history")
       "market_cap",     (Current Only. Synonyms: "valuation", "market value", "cap")
       "pe_ratio",       (Current Only. Synonyms: "p/e", "price to earnings")
@@ -31,8 +29,8 @@ def _map_attribute_to_yfinance_key(attribute_text):
       "company_info",   (Synonyms: "sector", "industry", "what do they do", "profile", "employees")
       "financial_health", (Synonyms: "cash", "debt", "balance sheet", "safe", "liabilities")
       "analyst_rating",   (Synonyms: "buy or sell", "rating", "recommendation", "target price")
-      "total_revenue",  (Historical. Synonyms: "sales", "revenue", "income", "how much money do they make")
-      "net_income",     (Historical. Synonyms: "profit", "earnings", "net profit", "profitable", "losing money")
+      "total_revenue",  (Current AND Historical. Synonyms: "sales", "revenue", "income", "how much money do they make")
+      "net_income",     (Current AND Historical. Synonyms: "profit", "earnings", "net profit", "net income", "profitable", "losing money")
       "future_estimates", (Synonyms: "forecast", "projected revenue", "future growth", "estimates", "next year")
       "unknown"
     ]
@@ -120,7 +118,6 @@ def fetch_yfinance_data(ticker, attribute):
         # --- HISTORICAL DATA ---
         elif metric_key == "historical_price":
             hist = stock.history(period="5y")
-            # FIX: Changed 'A' to 'YE' (Year End) for newer Pandas versions
             annual_close = hist['Close'].resample('YE').last().sort_index(ascending=False)
             
             parts = [f"Year-End {date.year}: ${round(price, 2)}" for date, price in annual_close.items()]
@@ -129,12 +126,12 @@ def fetch_yfinance_data(ticker, attribute):
         elif metric_key == "total_revenue":
             annual = stock.financials.loc['Total Revenue']
             quarterly = stock.quarterly_financials.loc['Total Revenue']
-            return f"{_format_series(annual, 'Annual')} | {_format_series(quarterly, 'Quarterly')}"
+            return f"{_format_series(annual, 'Annual Revenue')} | {_format_series(quarterly, 'Quarterly Revenue')}"
 
         elif metric_key == "net_income":
             annual = stock.financials.loc['Net Income']
             quarterly = stock.quarterly_financials.loc['Net Income']
-            return f"{_format_series(annual, 'Annual')} | {_format_series(quarterly, 'Quarterly')}"
+            return f"{_format_series(annual, 'Annual Net Income')} | {_format_series(quarterly, 'Quarterly Net Income')}"
         # --- PROJECTED DATA ---
         elif metric_key == "future_estimates":
             rev_growth = metadata.get('revenueGrowth', 'N/A')
@@ -153,9 +150,8 @@ if __name__ == "__main__":
     print("\n--- 🧪 TEST SUITE: YFINANCE TOOL ---")
     
     # 1. THE FIX TEST (Historical Price)
-    # This checks if the 'YE' fix works. It should print a list of year-end prices.
     print("\n--- 1. Historical Price (The Fix) ---")
-    print(fetch_yfinance_data("GOOGL", "What was the price in 2022?"))
+    print(fetch_yfinance_data("GOOGL", "What is 2022 stock price?"))
 
     # 2. FINANCIAL HEALTH (New)
     print("\n--- 2. Financial Health (Cash vs Debt) ---")
